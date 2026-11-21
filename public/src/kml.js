@@ -13,7 +13,7 @@ const esc = (s) =>
  *                      ground matches the ground under the path).
  *   'absolute'         home.msl + metres above takeoff (MSL).
  */
-export function buildKml(project, { altitudeMode = 'ellipsoid' } = {}) {
+export function buildKml(project, { altitudeMode = 'ellipsoid', segments = false } = {}) {
   const { home, camera, waypoints: wps, name } = project;
   if (!home) throw new Error('Set a home/takeoff point first.');
   if (altitudeMode === 'absolute' && !Number.isFinite(home.msl)) {
@@ -42,7 +42,8 @@ export function buildKml(project, { altitudeMode = 'ellipsoid' } = {}) {
     )
     .join('\n');
 
-  const segments = wps
+  const segmentPlacemarks = segments
+    ? wps
     .slice(0, -1)
     .map(
       (w, i) => `    <Placemark>
@@ -51,7 +52,8 @@ export function buildKml(project, { altitudeMode = 'ellipsoid' } = {}) {
       <LineString>${mode}<coordinates>${coord(w, w.alt)} ${coord(wps[i + 1], wps[i + 1].alt)}</coordinates></LineString>
     </Placemark>`,
     )
-    .join('\n');
+    .join('\n')
+    : '';
 
   const marker = (label, p, a, extra = '') => `    <Placemark>
       <name>${esc(label)}</name>${extra}
@@ -73,11 +75,15 @@ ${marker('Home / takeoff', home, 0)}${camera ? '\n' + marker('Camera', camera, 1
     <name>Waypoints</name>
 ${points}
   </Folder>
-  <Folder>
+${
+    segments
+      ? `  <Folder>
     <name>Path</name>
-${segments}
+${segmentPlacemarks}
   </Folder>
-  </Document>
+`
+      : ''
+  }  </Document>
 </kml>
 `;
 }

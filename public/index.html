@@ -106,7 +106,10 @@
         <option value="absolute">MSL (absolute, needs takeoff elevation)</option>
       </select>
     </label>
-    <div class="row"><button id="exportKml" class="primary">Download KML</button><button id="exportCues">Cues JSON</button></div>
+    <label class="check"><input id="kmlSegments" type="checkbox"> Include coloured path lines (Google Earth preview)</label>
+    <div class="row"><button id="exportDronelink" class="primary">Download .dronelink</button></div>
+    <div class="row"><button id="exportKml">Download KML</button><button id="exportCues">Cues JSON</button></div>
+    <p class="hint">The .dronelink file imports straight into Dronelink: 0 s holds, 1 ft arrival, heading north, gimbal level. The KML imports as plain waypoints (path lines off), which still need those settings applied by hand.</p>
     <div class="row"><button id="saveProject" class="link">Export route file</button><button id="loadProject" class="link">Import route file</button></div>
     <input id="loadFile" type="file" accept=".json" hidden>
   </details>
@@ -129,6 +132,7 @@
   </div>
   <div id="status"></div>
 </main>
+<script src="vendor/lzutf8.min.js"></script>
 <script type="module" src="src/app.js"></script>
 </body>
 </html>

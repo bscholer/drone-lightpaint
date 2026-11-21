@@ -95,6 +95,8 @@ test('kml: modes, colours, escaping, validation', () => {
   const ell = buildKml(p);
   assert.match(ell, /<altitudeMode>absolute<\/altitudeMode>/);
   assert.match(ell, /,270\.00<\/coordinates>/); // h0 250 + 20 (heart bottom tip)
+  assert.doesNotMatch(ell, /<LineString>/, 'segments are off by default so importers do not duplicate waypoints');
+  assert.match(buildKml(p, { segments: true }), /<LineString>/);
   const rel = buildKml(p, { altitudeMode: 'relativeToGround' });
   assert.match(rel, /<altitudeMode>relativeToGround<\/altitudeMode>/);
   assert.match(rel, /a&lt;b&gt;&amp;c/);

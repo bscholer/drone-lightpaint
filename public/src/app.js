@@ -4,6 +4,7 @@ import { buildShapeWaypoints, SHAPE_TYPES, GENERATORS, fitToBox } from './shapes
 import { bearingDeg } from './geo.js';
 import { sampleRoute, evaluateRoute } from './route.js';
 import { buildKml, buildCues } from './kml.js';
+import { buildDronelinkPlan, encodeDronelink } from './dronelink.js';
 
 const C = Cesium;
 const $ = (id) => document.getElementById(id);
@@ -544,7 +545,18 @@ function bindUi() {
   };
   $('exportKml').onclick = () => {
     try {
-      download(`${slug()}.kml`, buildKml(project, { altitudeMode: project.settings.altitudeMode }), 'application/vnd.google-earth.kml+xml');
+      download(
+        `${slug()}.kml`,
+        buildKml(project, { altitudeMode: project.settings.altitudeMode, segments: $('kmlSegments').checked }),
+        'application/vnd.google-earth.kml+xml',
+      );
+    } catch (e) {
+      say(e.message, true);
+    }
+  };
+  $('exportDronelink').onclick = () => {
+    try {
+      download(`${slug()}.dronelink`, encodeDronelink(buildDronelinkPlan(project), LZUTF8), 'text/plain;charset=utf-8');
     } catch (e) {
       say(e.message, true);
     }

@@ -32,16 +32,20 @@ Routes live in SQLite (`/data/lightpaint.db`). Edits autosave about a second aft
 3. Pick a shape, size, waypoint count, colours. "Face the camera" turns the shape's plane toward the camera so it reads correctly. Dashed yellow line is the preview. **Replace route** commits it.
 4. Click waypoints to edit altitude, colour, or whether it is a sync-blink stop. **Add waypoint** / **Move selected** for freehand work.
 5. Checks run automatically: clearance under every 5 m of the path, max height, range from home, estimated time. Bad segments show red.
-6. **Download KML**. **Cues JSON** is the per-waypoint colour list for the ESP32 side.
+6. **Download .dronelink** (or KML). **Cues JSON** is the per-waypoint colour list for the ESP32 side.
 
-## KML altitude modes
+## Export formats
 
-- **Ellipsoid** (default): WGS84 height = the home point's 3D-tile height + metres above takeoff, written as KML `absolute`. This is what an RTK drone reports. Google Earth reads `absolute` as MSL, so the Google Earth preview sits roughly the geoid undulation (~30 m in Indiana) off vertically. Colours and shape are still right; trust the planner's own view for heights.
+**`.dronelink`** (recommended): Dronelink's own plan file, so there is nothing to fix up after import. Waypoints come in with 0 s holds, 1 ft arrival distance and altitude, drone heading north and gimbal level with the horizon; horizontal speed is capped at the "Speed" setting. Altitudes are Dronelink's "above takeoff", which is exactly the planner's altitude, so the ellipsoid/MSL question does not arise. The format was read off a plan exported from Dronelink (JSON, LZ-UTF8 compressed, packed into 15-bit characters) and is checked against a real export; it is not from their SDK, which is proprietary. Not covered yet: per-waypoint camera actions, because none were in the sample.
+
+**KML**: plain waypoints by default. Tick "Include coloured path lines" for a Google Earth preview, but do not import that into Dronelink: it reads the lines as extra waypoints.
+
+KML altitude modes:
+
+- **Ellipsoid** (default): WGS84 height = the home point's 3D-tile height + metres above takeoff, written as KML `absolute`. Google Earth reads `absolute` as MSL, so its preview sits roughly the geoid undulation (~30 m in Indiana) off vertically.
 - `relativeToGround`: metres above the takeoff point.
 - `absolute`: takeoff MSL + altitude. Needs the takeoff elevation.
 
-How Dronelink's KML importer reads these is not documented; fly-test a 2–3 waypoint file first and compare altitudes after import.
-
 ## Layout
 
-`server.js` API + static files · `public/src/geo.js` local tangent maths · `shapes.js` generators, corner-preserving resampling, placement · `route.js` sampling and clearance · `kml.js` exports · `api.js` route-store client · `app.js` Cesium UI.
+`server.js` API + static files · `public/src/geo.js` local tangent maths · `shapes.js` generators, corner-preserving resampling, placement · `route.js` sampling and clearance · `kml.js` KML and cue exports · `dronelink.js` .dronelink writer · `api.js` route-store client · `app.js` Cesium UI.
