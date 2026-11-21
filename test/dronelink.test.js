@@ -5,6 +5,7 @@ import { buildDronelinkPlan, encodeDronelink, decodeDronelink } from '../public/
 import { buildShapeWaypoints } from '../public/src/shapes.js';
 import { toEnu, offsetLatLon } from '../public/src/geo.js';
 import { newProject } from '../public/src/project.js';
+import { segmentLength as segLen } from '../public/src/route.js';
 
 const LZ = createRequire(import.meta.url)('../public/vendor/lzutf8.min.js');
 
@@ -106,6 +107,19 @@ test('aux light is left alone when the setting is off', () => {
   const kids = buildDronelinkPlan(p).rootComponent.childComponents;
   assert.equal(kids.length, p.waypoints.length);
   assert.ok(kids.every((k) => k.immediateComponent === undefined));
+});
+
+test('arrival radius is capped by the gap to neighbouring waypoints', () => {
+  const p = project();
+  p.settings.arrivalCurve = 5; // far wider than the ~3 m waypoint spacing
+  const kids = buildDronelinkPlan(p).rootComponent.childComponents;
+  kids.forEach((k, i) => {
+    const w = p.waypoints[i];
+    if (w.corner === false) {
+      const gap = Math.min(i > 0 ? segLen(p.waypoints[i - 1], w) : Infinity, i < p.waypoints.length - 1 ? segLen(w, p.waypoints[i + 1]) : Infinity);
+      assert.ok(k.achievementDistance.horizontal <= 0.4 * gap + 1e-9 || k.achievementDistance.horizontal === 0.3048);
+    }
+  });
 });
 
 test('speed setting limits horizontal velocity; omits elevations without MSL', () => {

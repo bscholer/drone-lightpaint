@@ -1,4 +1,5 @@
 import { toEnu } from './geo.js';
+import { segmentLength } from './route.js';
 
 // Writes Dronelink's own plan format (.dronelink): a PlanComponent whose
 // children are DestinationComponents, JSON-compressed with LZ-UTF8 and packed
@@ -72,7 +73,13 @@ export function buildDronelinkPlan(project, options = {}) {
 
   const children = waypoints.map((w, i) => {
     const { e, n } = toEnu(home, w);
-    const radius = w.corner === false ? Math.max(curve, o.arrivalDistance) : o.arrivalDistance;
+    // A radius wider than the gap to a neighbour would let the drone skip waypoints, which
+    // matters now that curves get closely spaced points. Cap it at 40% of the nearer gap.
+    const gap = Math.min(
+      i > 0 ? segmentLength(waypoints[i - 1], w) : Infinity,
+      i < waypoints.length - 1 ? segmentLength(w, waypoints[i + 1]) : Infinity,
+    );
+    const radius = w.corner === false ? Math.max(o.arrivalDistance, Math.min(curve, 0.4 * gap)) : o.arrivalDistance;
     return component(`WP${i + 1}`, {
       droneMotionLimits: { type: 'MotionLimits6Optional' },
       droneMotionErrorModelDelayAllowed: false,
@@ -90,7 +97,7 @@ export function buildDronelinkPlan(project, options = {}) {
       achievementDistance: {
         type: 'DistanceTolerance',
         horizontal: radius,
-        vertical: w.corner === false ? Math.max(curve, o.arrivalAltitude) : o.arrivalAltitude,
+        vertical: w.corner === false ? Math.max(o.arrivalAltitude, Math.min(curve, 0.4 * gap)) : o.arrivalAltitude,
       },
       droneOrientation: { type: 'Orientation3Optional', xReference: 'horizon', z: o.headingDeg * RAD, zReference: 'north' },
       gimbalOrientations: {

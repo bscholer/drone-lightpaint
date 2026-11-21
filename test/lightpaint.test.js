@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { offsetLatLon, toEnu, bearingDeg, distanceM } from '../public/src/geo.js';
-import { buildShapeWaypoints, GENERATORS, resample, fitToBox } from '../public/src/shapes.js';
+import { buildShapeWaypoints, GENERATORS, resample, resampleAdaptive, fitToBox } from '../public/src/shapes.js';
 import { sampleRoute, evaluateRoute } from '../public/src/route.js';
 import { buildKml, buildCues } from '../public/src/kml.js';
 import { newProject } from '../public/src/project.js';
@@ -67,6 +67,45 @@ test('heart flags its tip and cusp as corners, and nothing else', () => {
   const idx = w.map((p, i) => (p.corner ? i : -1)).filter((i) => i >= 0);
   assert.equal(idx.length, 3);
   assert.deepEqual([idx[0], idx[2]], [0, w.length - 1]);
+});
+
+test('adaptive spacing: exact budget, keeps corners, packs points into the curvy part', () => {
+  // 100 m straight run, then a tight quarter circle of radius 5
+  const dense = [];
+  for (let x = 0; x <= 100; x += 1) dense.push([x, 0, 0]);
+  for (let a = 0; a <= 90; a += 2) dense.push([100 + 5 * Math.sin((a * Math.PI) / 180), 5 - 5 * Math.cos((a * Math.PI) / 180), 0]);
+  const last = dense.length - 1;
+  const { points, cornerIdx } = resampleAdaptive(dense, [0, last], 12);
+  assert.equal(points.length, 13);
+  assert.deepEqual(cornerIdx, [0, 12]);
+  assert.deepEqual(points[0], dense[0]);
+  assert.deepEqual(points.at(-1), dense[last]);
+  const inArc = points.filter((p) => p[0] >= 100).length;
+  assert.ok(inArc >= 6, `${inArc} of 13 points on the 8 m arc`);
+});
+
+test('adaptive spacing follows the heart more closely than even spacing', () => {
+  const dense = GENERATORS.heart();
+  const fitted = fitToBox(dense.pts, 40, 40, 0);
+  const worstGap = (points) => {
+    let worst = 0;
+    for (const p of fitted) {
+      let best = Infinity;
+      for (let i = 0; i < points.length - 1; i++) {
+        const a = points[i], b = points[i + 1];
+        const ab = [b[0] - a[0], b[1] - a[1]];
+        const l2 = ab[0] ** 2 + ab[1] ** 2 || 1;
+        const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1]) / l2));
+        best = Math.min(best, Math.hypot(p[0] - a[0] - ab[0] * t, p[1] - a[1] - ab[1] * t));
+      }
+      worst = Math.max(worst, best);
+    }
+    return worst;
+  };
+  const adaptive = resampleAdaptive(fitted, dense.corners, 30).points;
+  const even = resample(fitted, dense.corners, 30).points;
+  assert.equal(adaptive.length, even.length);
+  assert.ok(worstGap(adaptive) < worstGap(even), `${worstGap(adaptive)} vs ${worstGap(even)}`);
 });
 
 test('colour modes', () => {

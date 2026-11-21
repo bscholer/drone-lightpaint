@@ -11,6 +11,7 @@ export function newProject() {
       height: 40,
       depth: 20,
       samples: 40,
+      spacing: 'adaptive', // 'adaptive' = denser on curves, 'even' = equal arc length
       centerAlt: 40,
       facing: 180,
       faceCamera: true,

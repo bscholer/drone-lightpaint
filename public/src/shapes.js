@@ -161,6 +161,48 @@ export function resample(pts, corners, count) {
   return { points: out, cornerIdx };
 }
 
+function distToSegment(p, a, b) {
+  const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const len2 = ab[0] ** 2 + ab[1] ** 2 + ab[2] ** 2;
+  const t = len2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / len2)) : 0;
+  return dist3(p, [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t]);
+}
+
+/**
+ * Douglas-Peucker with a point budget: start from the corners, then keep adding
+ * whichever dense point strays furthest from the current polyline until there
+ * are `count` + 1 points. Tight curves get many points, near-straight runs few.
+ * Same return shape as resample().
+ */
+export function resampleAdaptive(pts, corners, count) {
+  const worst = (i, j) => {
+    let k = -1;
+    let d = 0;
+    for (let m = i + 1; m < j; m++) {
+      const dm = distToSegment(pts[m], pts[i], pts[j]);
+      if (dm > d) {
+        d = dm;
+        k = m;
+      }
+    }
+    return { i, j, k, d };
+  };
+  const keep = new Set(corners);
+  let spans = corners.slice(0, -1).map((c, n) => worst(c, corners[n + 1]));
+  while (keep.size < count + 1) {
+    const best = spans.reduce((a, s) => (s.k >= 0 && (!a || s.d > a.d) ? s : a), null);
+    if (!best || best.d < 1e-9) break;
+    keep.add(best.k);
+    spans = spans.filter((s) => s !== best).concat(worst(best.i, best.k), worst(best.k, best.j));
+  }
+  const idx = [...keep].sort((a, b) => a - b);
+  const isCorner = new Set(corners);
+  return {
+    points: idx.map((i) => pts[i]),
+    cornerIdx: idx.flatMap((i, n) => (isCorner.has(i) ? [n] : [])),
+  };
+}
+
 /**
  * Turn a shape spec into waypoints. `facing` is the compass bearing from the
  * shape toward the camera, so the shape reads correctly from the camera.
@@ -170,7 +212,8 @@ export function buildShapeWaypoints(spec, center) {
   if (!gen) throw new Error(`unknown shape ${spec.type}`);
   const { pts, corners } = gen();
   const fitted = fitToBox(pts, spec.width, spec.height, spec.depth);
-  const { points: sampled, cornerIdx } = resample(fitted, corners, spec.samples);
+  const sampler = spec.spacing === 'adaptive' ? resampleAdaptive : resample;
+  const { points: sampled, cornerIdx } = sampler(fitted, corners, spec.samples);
   const isCorner = new Set(cornerIdx);
   // Looking from the camera toward the shape, "right" is facing - 90 degrees.
   const right = toRad(spec.facing - 90);

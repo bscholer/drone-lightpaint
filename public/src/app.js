@@ -396,6 +396,7 @@ const shapeFields = {
   shHeight: ['height', Number],
   shDepth: ['depth', Number],
   shSamples: ['samples', Number],
+  shSpacing: ['spacing', String],
   shAlt: ['centerAlt', Number],
   shFacing: ['facing', Number],
   shColorMode: ['colorMode', String],
@@ -419,7 +420,7 @@ function syncInputs() {
   $('stAux').checked = project.settings.auxLight;
   $('projName').value = project.name;
   if (document.activeElement !== $('homeMsl')) $('homeMsl').value = project.home?.msl ?? '';
-  for (const id of ['shType', 'shColorMode']) markMirror(id);
+  for (const id of ['shType', 'shColorMode', 'shSpacing']) markMirror(id);
   renderSite();
 }
 
@@ -477,6 +478,7 @@ function bindUi() {
   $('shType').innerHTML = SHAPE_TYPES.map((t) => `<option>${t}</option>`).join('');
   mirrorSelect('shType', 'shapes', (o) => `${thumb(o.value)}${o.value}`);
   mirrorSelect('shColorMode', 'seg', (o) => o.textContent);
+  mirrorSelect('shSpacing', 'seg', (o) => o.textContent);
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
   for (const [id, [k, cast]] of Object.entries(shapeFields)) {
     $(id).oninput = () => {
