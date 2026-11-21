@@ -416,6 +416,7 @@ function syncInputs() {
   for (const [id, [k]] of Object.entries(shapeFields)) if (document.activeElement !== $(id)) $(id).value = project.shape[k];
   for (const [id, [k]] of Object.entries(settingFields)) if (document.activeElement !== $(id)) $(id).value = project.settings[k];
   $('shFaceCam').checked = project.shape.faceCamera;
+  $('stAux').checked = project.settings.auxLight;
   $('projName').value = project.name;
   if (document.activeElement !== $('homeMsl')) $('homeMsl').value = project.home?.msl ?? '';
   for (const id of ['shType', 'shColorMode']) markMirror(id);
@@ -494,6 +495,10 @@ function bindUi() {
       commit();
     };
   }
+  $('stAux').onchange = () => {
+    project.settings.auxLight = $('stAux').checked;
+    commit(false);
+  };
   $('shFaceCam').onchange = () => {
     project.shape.faceCamera = $('shFaceCam').checked;
     syncFacing();

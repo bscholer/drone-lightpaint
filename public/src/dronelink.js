@@ -5,6 +5,8 @@ import { toEnu } from './geo.js';
 // into 15-bit characters ("StorageBinaryString"). The layout was read off a
 // plan exported from Dronelink, not from its (proprietary) SDK. A photo at a
 // waypoint is a `cameraCaptureConfigurations` entry with captureType 'photos'.
+// A departure command (here: aux light on) is an `immediateComponent` on the
+// waypoint holding a CommandComponent.
 //
 // Waypoints are placed by bearing + distance from the plan's takeoff
 // coordinate, and altitude is above the takeoff point (`atl`), which is what
@@ -20,6 +22,9 @@ export const DEFAULTS = {
   headingDeg: 0, // fixed drone heading, 0 = north
   gimbalPitchDeg: 0, // 0 = level with the horizon
   photos: true, // take a photo at every waypoint flagged `sync`
+  auxLightPosition: 'bottom',
+  auxLightOnAtStart: true, // departure command on the first waypoint (read off a real export)
+  auxLightOffAtEnd: true, // best guess, see below
 };
 
 const limits = (max, min) => ({ type: 'Limits', max, min });
@@ -52,6 +57,19 @@ export function buildDronelinkPlan(project, options = {}) {
   // Smooth parts of a shape get a wider arrival radius so the drone can flow into
   // the next waypoint instead of braking to a stop; corners and hand-placed points stay tight.
   const curve = project.settings?.arrivalCurve ?? o.arrivalDistance;
+  const auxLight = (mode) =>
+    component('', {
+      type: 'CommandComponent',
+      command: {
+        id: o.uuid(),
+        reengagementEnabled: true,
+        type: 'AuxiliaryLightModeDroneCommand',
+        auxiliaryLightPosition: o.auxLightPosition,
+        auxiliaryLightMode: mode,
+      },
+    });
+  const useAux = project.settings?.auxLight ?? true;
+
   const children = waypoints.map((w, i) => {
     const { e, n } = toEnu(home, w);
     const radius = w.corner === false ? Math.max(curve, o.arrivalDistance) : o.arrivalDistance;
@@ -82,8 +100,24 @@ export function buildDronelinkPlan(project, options = {}) {
       ...(w.sync && o.photos
         ? { cameraCaptureConfigurations: [{ type: 'CameraCaptureConfiguration', channel: 0, captureType: 'photos' }] }
         : {}),
+      ...(i === 0 && useAux && o.auxLightOnAtStart ? { immediateComponent: auxLight('on') } : {}),
     });
   });
+
+  // Without this the drone keeps painting on the way home. The sample only shows an
+  // "on" command, so "off" is inferred: an extra waypoint on top of the last one whose
+  // departure command switches the light off, so the final stroke is still drawn.
+  if (useAux && o.auxLightOffAtEnd) {
+    const last = children[children.length - 1];
+    children.push({
+      ...last,
+      id: o.uuid(),
+      reference: { ...last.reference, id: o.uuid() },
+      descriptors: { type: 'Descriptors', name: `WP${children.length + 1}` },
+      immediateComponent: auxLight('off'),
+    });
+    delete children[children.length - 1].cameraCaptureConfigurations;
+  }
 
   return {
     id: o.uuid(),

@@ -11,6 +11,7 @@ const LZ = createRequire(import.meta.url)('../public/vendor/lzutf8.min.js');
 function project() {
   const p = newProject();
   p.home = { lat: 44.0154, lon: -121.3462, h0: 1200, msl: 1175 };
+  p.settings.auxLight = false; // aux light tests opt in
   const center = offsetLatLon(p.home, 0, -70);
   p.waypoints = buildShapeWaypoints({ ...p.shape, facing: 180, centerAlt: 30 }, center);
   return p;
@@ -76,6 +77,35 @@ test('photo capture on waypoints flagged sync, none on the rest', () => {
   assert.equal(kids[1].cameraCaptureConfigurations, undefined);
   const none = buildDronelinkPlan(p, { photos: false }).rootComponent.childComponents;
   assert.ok(none.every((k) => k.cameraCaptureConfigurations === undefined));
+});
+
+test('aux light: on at the first waypoint, off via a closing waypoint on the last spot', () => {
+  const p = project();
+  p.settings.auxLight = true;
+  const kids = buildDronelinkPlan(p).rootComponent.childComponents;
+  assert.equal(kids.length, p.waypoints.length + 1);
+  const on = kids[0].immediateComponent;
+  assert.equal(on.type, 'CommandComponent');
+  assert.deepEqual(
+    { ...on.command, id: undefined },
+    { id: undefined, reengagementEnabled: true, type: 'AuxiliaryLightModeDroneCommand', auxiliaryLightPosition: 'bottom', auxiliaryLightMode: 'on' },
+  );
+  assert.equal(kids[1].immediateComponent, undefined);
+  const closing = kids.at(-1);
+  assert.equal(closing.immediateComponent.command.auxiliaryLightMode, 'off');
+  assert.equal(closing.cameraCaptureConfigurations, undefined, 'no photo on the closing waypoint');
+  assert.deepEqual(closing.destinationOffset, kids.at(-2).destinationOffset);
+  assert.equal(closing.altitudeRange.altitude.value, kids.at(-2).altitudeRange.altitude.value);
+  assert.notEqual(closing.id, kids.at(-2).id);
+  assert.notEqual(closing.reference.id, kids.at(-2).reference.id);
+  assert.equal(closing.descriptors.name, `WP${kids.length}`);
+});
+
+test('aux light is left alone when the setting is off', () => {
+  const p = project();
+  const kids = buildDronelinkPlan(p).rootComponent.childComponents;
+  assert.equal(kids.length, p.waypoints.length);
+  assert.ok(kids.every((k) => k.immediateComponent === undefined));
 });
 
 test('speed setting limits horizontal velocity; omits elevations without MSL', () => {

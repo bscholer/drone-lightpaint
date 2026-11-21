@@ -25,6 +25,7 @@ export function newProject() {
       maxRange: 500,
       speed: 4,
       holdSec: 4,
+      auxLight: true, // Dronelink: aux light on at the first waypoint, off after the last
       arrivalCurve: 1, // Dronelink arrival radius (m) on smooth parts of a shape; corners stay tight
       altitudeMode: 'ellipsoid',
     },
