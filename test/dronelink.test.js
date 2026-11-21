@@ -68,6 +68,16 @@ test('wider arrival radius on curves, tight on corners and manual points', () =>
   assert.equal(buildDronelinkPlan(p).rootComponent.childComponents[5].achievementDistance.horizontal, 0.3048);
 });
 
+test('photo capture on waypoints flagged sync, none on the rest', () => {
+  const p = project();
+  p.waypoints.forEach((w, i) => (w.sync = i % 2 === 0));
+  const kids = buildDronelinkPlan(p).rootComponent.childComponents;
+  assert.deepEqual(kids[0].cameraCaptureConfigurations, [{ type: 'CameraCaptureConfiguration', channel: 0, captureType: 'photos' }]);
+  assert.equal(kids[1].cameraCaptureConfigurations, undefined);
+  const none = buildDronelinkPlan(p, { photos: false }).rootComponent.childComponents;
+  assert.ok(none.every((k) => k.cameraCaptureConfigurations === undefined));
+});
+
 test('speed setting limits horizontal velocity; omits elevations without MSL', () => {
   const p = project();
   p.settings.speed = 3;

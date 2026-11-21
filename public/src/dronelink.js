@@ -3,7 +3,8 @@ import { toEnu } from './geo.js';
 // Writes Dronelink's own plan format (.dronelink): a PlanComponent whose
 // children are DestinationComponents, JSON-compressed with LZ-UTF8 and packed
 // into 15-bit characters ("StorageBinaryString"). The layout was read off a
-// plan exported from Dronelink, not from its (proprietary) SDK.
+// plan exported from Dronelink, not from its (proprietary) SDK. A photo at a
+// waypoint is a `cameraCaptureConfigurations` entry with captureType 'photos'.
 //
 // Waypoints are placed by bearing + distance from the plan's takeoff
 // coordinate, and altitude is above the takeoff point (`atl`), which is what
@@ -18,6 +19,7 @@ export const DEFAULTS = {
   arrivalAltitude: FT, // ...and this vertical distance (m)
   headingDeg: 0, // fixed drone heading, 0 = north
   gimbalPitchDeg: 0, // 0 = level with the horizon
+  photos: true, // take a photo at every waypoint flagged `sync`
 };
 
 const limits = (max, min) => ({ type: 'Limits', max, min });
@@ -76,6 +78,10 @@ export function buildDronelinkPlan(project, options = {}) {
       gimbalOrientations: {
         0: { type: 'Orientation3Optional', x: o.gimbalPitchDeg * RAD, xReference: 'horizon', zReference: 'north' },
       },
+      // The sync blink: the drone takes a photo here, which blinks its leg LEDs for the ESP32.
+      ...(w.sync && o.photos
+        ? { cameraCaptureConfigurations: [{ type: 'CameraCaptureConfiguration', channel: 0, captureType: 'photos' }] }
+        : {}),
     });
   });
 
