@@ -408,6 +408,7 @@ const settingFields = {
   stRange: ['maxRange', Number],
   stSpeed: ['speed', Number],
   stHold: ['holdSec', Number],
+  stArrival: ['arrivalCurve', Number],
   stAltMode: ['altitudeMode', String],
 };
 

@@ -25,6 +25,7 @@ export function newProject() {
       maxRange: 500,
       speed: 4,
       holdSec: 4,
+      arrivalCurve: 1, // Dronelink arrival radius (m) on smooth parts of a shape; corners stay tight
       altitudeMode: 'ellipsoid',
     },
   };

@@ -47,8 +47,12 @@ export function buildDronelinkPlan(project, options = {}) {
     ...fields,
   });
 
+  // Smooth parts of a shape get a wider arrival radius so the drone can flow into
+  // the next waypoint instead of braking to a stop; corners and hand-placed points stay tight.
+  const curve = project.settings?.arrivalCurve ?? o.arrivalDistance;
   const children = waypoints.map((w, i) => {
     const { e, n } = toEnu(home, w);
+    const radius = w.corner === false ? Math.max(curve, o.arrivalDistance) : o.arrivalDistance;
     return component(`WP${i + 1}`, {
       droneMotionLimits: { type: 'MotionLimits6Optional' },
       droneMotionErrorModelDelayAllowed: false,
@@ -63,7 +67,11 @@ export function buildDronelinkPlan(project, options = {}) {
         range: limits(30.48, -30.48),
       },
       achievementTime: o.holdSec,
-      achievementDistance: { type: 'DistanceTolerance', horizontal: o.arrivalDistance, vertical: o.arrivalAltitude },
+      achievementDistance: {
+        type: 'DistanceTolerance',
+        horizontal: radius,
+        vertical: w.corner === false ? Math.max(curve, o.arrivalAltitude) : o.arrivalAltitude,
+      },
       droneOrientation: { type: 'Orientation3Optional', xReference: 'horizon', z: o.headingDeg * RAD, zReference: 'north' },
       gimbalOrientations: {
         0: { type: 'Orientation3Optional', x: o.gimbalPitchDeg * RAD, xReference: 'horizon', zReference: 'north' },

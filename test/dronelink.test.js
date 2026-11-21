@@ -57,6 +57,17 @@ test('encode / decode round trip through LZ-UTF8 storage strings', () => {
   assert.deepEqual(decodeDronelink(text, LZ), JSON.parse(JSON.stringify(plan)));
 });
 
+test('wider arrival radius on curves, tight on corners and manual points', () => {
+  const p = project();
+  p.settings.arrivalCurve = 1.5;
+  const kids = buildDronelinkPlan(p).rootComponent.childComponents;
+  assert.equal(kids[0].achievementDistance.horizontal, 0.3048); // heart tip
+  assert.equal(kids[5].achievementDistance.horizontal, 1.5);
+  assert.equal(kids[5].achievementDistance.vertical, 1.5);
+  p.waypoints[5] = { ...p.waypoints[5], corner: undefined }; // hand-placed
+  assert.equal(buildDronelinkPlan(p).rootComponent.childComponents[5].achievementDistance.horizontal, 0.3048);
+});
+
 test('speed setting limits horizontal velocity; omits elevations without MSL', () => {
   const p = project();
   p.settings.speed = 3;

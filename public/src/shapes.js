@@ -125,6 +125,7 @@ const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 /**
  * Resample a dense polyline to roughly `count` points, evenly spaced by arc
  * length between corners, always keeping the corner points themselves.
+ * Returns { points, cornerIdx } where cornerIdx lists which points are corners.
  */
 export function resample(pts, corners, count) {
   const segs = [];
@@ -136,6 +137,7 @@ export function resample(pts, corners, count) {
     total += len;
   }
   const out = [];
+  const cornerIdx = [];
   for (let c = 0; c < segs.length; c++) {
     const steps = Math.max(1, Math.round((count * segs[c]) / total));
     const a = corners[c];
@@ -143,6 +145,7 @@ export function resample(pts, corners, count) {
     const cum = [0];
     for (let i = a; i < b; i++) cum.push(cum[cum.length - 1] + dist3(pts[i], pts[i + 1]));
     let j = 0;
+    cornerIdx.push(out.length);
     for (let s = 0; s < steps; s++) {
       const target = (cum[cum.length - 1] * s) / steps;
       while (j < cum.length - 2 && cum[j + 1] < target) j++;
@@ -153,8 +156,9 @@ export function resample(pts, corners, count) {
       out.push([p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f, p[2] + (q[2] - p[2]) * f]);
     }
   }
+  cornerIdx.push(out.length);
   out.push(pts[corners[corners.length - 1]]);
-  return out;
+  return { points: out, cornerIdx };
 }
 
 /**
@@ -166,7 +170,8 @@ export function buildShapeWaypoints(spec, center) {
   if (!gen) throw new Error(`unknown shape ${spec.type}`);
   const { pts, corners } = gen();
   const fitted = fitToBox(pts, spec.width, spec.height, spec.depth);
-  const sampled = resample(fitted, corners, spec.samples);
+  const { points: sampled, cornerIdx } = resample(fitted, corners, spec.samples);
+  const isCorner = new Set(cornerIdx);
   // Looking from the camera toward the shape, "right" is facing - 90 degrees.
   const right = toRad(spec.facing - 90);
   const toward = toRad(spec.facing);
@@ -180,6 +185,7 @@ export function buildShapeWaypoints(spec, center) {
       alt: spec.centerAlt + v,
       color: colorAt(spec.colorMode, i, sampled.length, spec.color, spec.color2),
       sync: true,
+      corner: isCorner.has(i),
     };
   });
 }

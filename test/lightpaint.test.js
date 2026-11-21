@@ -57,8 +57,16 @@ test('helix uses depth toward the camera', () => {
 
 test('resample keeps corners exactly', () => {
   const pts = fitToBox([[0, 0, 0], [1, 0, 0], [1, 1, 0]], 10, 10, 0);
-  const out = resample(pts, [0, 1, 2], 10);
+  const { points: out, cornerIdx } = resample(pts, [0, 1, 2], 10);
+  assert.equal(cornerIdx.length, 3);
   assert.ok(out.some((p) => Math.abs(p[0] - 5) < 1e-9 && Math.abs(p[1] + 5) < 1e-9));
+});
+
+test('heart flags its tip and cusp as corners, and nothing else', () => {
+  const w = buildShapeWaypoints(spec(), C);
+  const idx = w.map((p, i) => (p.corner ? i : -1)).filter((i) => i >= 0);
+  assert.equal(idx.length, 3);
+  assert.deepEqual([idx[0], idx[2]], [0, w.length - 1]);
 });
 
 test('colour modes', () => {
