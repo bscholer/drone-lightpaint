@@ -73,7 +73,7 @@ test('static files, healthz, no path traversal', () =>
     assert.equal((await call('GET', '/healthz')).body, 'ok\n');
     const idx = await call('GET', '/');
     assert.equal(idx.status, 200);
-    assert.match(idx.body, /Light-paint planner/);
+    assert.match(idx.body, /Firefly/);
     assert.equal((await call('GET', '/src/geo.js')).status, 200);
     assert.equal((await call('GET', '/..%2fserver.js')).status, 404);
     assert.equal((await call('GET', '/%2e%2e/server.js')).status, 404);

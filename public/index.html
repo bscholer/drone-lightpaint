@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Drone light-paint route planner</title>
+<title>Firefly · drone light-paint planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.130/Build/Cesium/Cesium.js"></script>
 <link href="https://cesium.com/downloads/cesiumjs/releases/1.130/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -10,82 +10,96 @@
 </head>
 <body>
 <aside id="panel">
-  <h1>Light-paint planner</h1>
-  <div id="status"></div>
-  <div class="row"><input id="goto" type="text" placeholder="Go to: place name or lat, lon" style="flex:1"><button id="gotoBtn">Go</button></div>
+  <header>
+    <h1><span class="spark">✦</span> Firefly</h1>
+    <span id="syncState"></span>
+  </header>
 
-  <details open id="routes"><summary>Routes <span id="syncState" class="hint"></span></summary>
-    <select id="routeSelect"></select>
-    <div class="row">
-      <button id="routeNew">New</button><button id="routeDup">Duplicate</button><button id="routeDel">Delete</button>
+  <div class="search">
+    <input id="goto" type="text" placeholder="Go to a place or lat, lon" autocomplete="off">
+    <button id="gotoBtn">Go</button>
+  </div>
+
+  <section class="card" id="routes">
+    <div class="pick">
+      <select id="routeSelect" title="Saved routes"></select>
+      <button id="routeNew" class="ico" title="New route">＋</button>
+      <button id="routeDup" class="ico" title="Duplicate this route">⧉</button>
+      <button id="routeDel" class="ico danger" title="Delete this route">🗑</button>
     </div>
-    <div class="row">
-      <button id="histBtn">History…</button>
-      <select id="revSelect" hidden style="flex:1"></select><button id="revRestore" hidden>Restore</button>
+    <div class="sub"><button id="histBtn" class="link">Earlier versions…</button></div>
+    <div class="pick" id="revRow" hidden>
+      <select id="revSelect" hidden></select><button id="revRestore" hidden>Restore</button>
     </div>
+    <label class="f name"><span>Name</span><input id="projName" type="text"></label>
+  </section>
+
+  <details class="card" open>
+    <summary><b>1</b>Site</summary>
+    <div class="site">
+      <div class="srow" id="rowHome"><span class="k">Home</span><span class="v" id="siteHome"></span><button data-tool="home">Set</button></div>
+      <div class="srow" id="rowCamera"><span class="k">Camera</span><span class="v" id="siteCamera"></span><button data-tool="camera">Set</button></div>
+      <div class="srow" id="rowCenter"><span class="k">Shape centre</span><span class="v" id="siteCenter"></span><button data-tool="center">Set</button></div>
+    </div>
+    <label class="f"><span>Takeoff elevation (MSL)</span><div class="u"><input id="homeMsl" type="number" step="0.1"><i>m</i></div></label>
+    <p class="hint">Home is the takeoff point; every altitude is measured from it. Camera is where the long exposure is shot from.</p>
   </details>
 
-  <details open><summary>1 · Reference points</summary>
-    <p class="hint">Click a tool, then click the map. Home is the takeoff point; altitudes are measured from it.</p>
-    <div class="row tools">
-      <button data-tool="select" class="on">Select</button>
-      <button data-tool="home">Home</button>
-      <button data-tool="camera">Camera</button>
-      <button data-tool="center">Shape centre</button>
-      <button data-tool="add">Add waypoint</button>
-      <button data-tool="move">Move selected</button>
-    </div>
-    <label>Takeoff elevation MSL (m) <input id="homeMsl" type="number" step="0.1"></label>
-  </details>
-
-  <details open><summary>2 · Shape</summary>
-    <label>Shape <select id="shType"></select></label>
-    <div class="grid">
-      <label>Width m <input id="shWidth" type="number" min="1"></label>
-      <label>Height m <input id="shHeight" type="number" min="1"></label>
-      <label>Depth m <input id="shDepth" type="number" min="0"> </label>
-      <label>Waypoints <input id="shSamples" type="number" min="2" max="150"></label>
-      <label>Centre alt m <input id="shAlt" type="number"></label>
-      <label>Facing ° <input id="shFacing" type="number" step="1"></label>
+  <details class="card" open>
+    <summary><b>2</b>Shape</summary>
+    <select id="shType" hidden></select>
+    <div class="grid2">
+      <label class="f"><span>Width</span><div class="u"><input id="shWidth" type="number" min="1"><i>m</i></div></label>
+      <label class="f"><span>Height</span><div class="u"><input id="shHeight" type="number" min="1"><i>m</i></div></label>
+      <label class="f"><span>Centre altitude</span><div class="u"><input id="shAlt" type="number"><i>m</i></div></label>
+      <label class="f"><span>Waypoints</span><div class="u"><input id="shSamples" type="number" min="2" max="150"></div></label>
+      <label class="f"><span>Facing</span><div class="u"><input id="shFacing" type="number" step="1"><i>°</i></div></label>
+      <label class="f"><span>Depth (helix)</span><div class="u"><input id="shDepth" type="number" min="0"><i>m</i></div></label>
     </div>
     <label class="check"><input id="shFaceCam" type="checkbox"> Face the camera marker</label>
-    <label>Colours <select id="shColorMode"><option value="rainbow">Rainbow</option><option value="gradient">Gradient</option><option value="solid">Solid</option></select></label>
-    <div class="row"><input id="shColor" type="color"><input id="shColor2" type="color"></div>
+    <select id="shColorMode" hidden>
+      <option value="rainbow">Rainbow</option><option value="gradient">Gradient</option><option value="solid">Solid</option>
+    </select>
+    <div class="colors">
+      <input id="shColor" type="color" title="Colour (start)"><input id="shColor2" type="color" title="Colour (end)">
+    </div>
     <div class="row">
       <button id="applyShape" class="primary">Replace route</button>
       <button id="appendShape">Append</button>
     </div>
-    <p class="hint">Dashed preview shows the shape before you commit. Depth only affects the helix.</p>
+    <p class="hint">The dashed yellow line on the map previews the shape before you commit it.</p>
   </details>
 
-  <details open><summary>3 · Route</summary>
+  <details class="card" open>
+    <summary><b>3</b>Route <span class="count" id="wpCount"></span></summary>
     <div id="wpEdit" hidden>
-      <b id="wpTitle"></b>
-      <div class="grid">
-        <label>Alt m <input id="wpAlt" type="number" step="0.5"></label>
-        <label>Colour <input id="wpColor" type="color"></label>
+      <div class="wphead"><b id="wpTitle"></b>
+        <span><button id="wpInsert" class="mini">Insert after</button><button id="wpDelete" class="mini danger">Delete</button></span></div>
+      <div class="grid2">
+        <label class="f"><span>Altitude</span><div class="u"><input id="wpAlt" type="number" step="0.5"><i>m</i></div></label>
+        <label class="f"><span>Colour</span><input id="wpColor" type="color"></label>
       </div>
-      <label class="check"><input id="wpSync" type="checkbox"> Photo / sync blink here</label>
-      <div class="row"><button id="wpDelete">Delete</button><button id="wpInsert">Insert after</button></div>
+      <label class="check"><input id="wpSync" type="checkbox"> Photo / sync blink at this waypoint</label>
     </div>
     <div id="wpList"></div>
-    <button id="clearRoute">Clear route</button>
+    <button id="clearRoute" class="link danger">Clear route</button>
   </details>
 
-  <details open><summary>4 · Checks</summary>
-    <div class="grid">
-      <label>Min clearance m <input id="stClear" type="number"></label>
-      <label>Max height m <input id="stAgl" type="number"></label>
-      <label>Max range m <input id="stRange" type="number"></label>
-      <label>Speed m/s <input id="stSpeed" type="number" step="0.5"></label>
-      <label>Hold per photo s <input id="stHold" type="number" step="0.5"></label>
-    </div>
+  <details class="card" open>
+    <summary><b>4</b>Checks</summary>
     <div id="checks"></div>
+    <div class="grid2">
+      <label class="f"><span>Min clearance</span><div class="u"><input id="stClear" type="number"><i>m</i></div></label>
+      <label class="f"><span>Max height</span><div class="u"><input id="stAgl" type="number"><i>m</i></div></label>
+      <label class="f"><span>Max range</span><div class="u"><input id="stRange" type="number"><i>m</i></div></label>
+      <label class="f"><span>Speed</span><div class="u"><input id="stSpeed" type="number" step="0.5"><i>m/s</i></div></label>
+      <label class="f"><span>Hold per photo</span><div class="u"><input id="stHold" type="number" step="0.5"><i>s</i></div></label>
+    </div>
   </details>
 
-  <details open><summary>5 · Export</summary>
-    <label>Name <input id="projName" type="text"></label>
-    <label>KML altitude
+  <details class="card" open>
+    <summary><b>5</b>Export</summary>
+    <label class="f"><span>KML altitude</span>
       <select id="stAltMode">
         <option value="ellipsoid">Ellipsoid height (WGS84)</option>
         <option value="relativeToGround">Above takeoff (relativeToGround)</option>
@@ -93,18 +107,28 @@
       </select>
     </label>
     <div class="row"><button id="exportKml" class="primary">Download KML</button><button id="exportCues">Cues JSON</button></div>
-    <div class="row"><button id="saveProject">Export file</button><button id="loadProject">Import file</button></div>
+    <div class="row"><button id="saveProject" class="link">Export route file</button><button id="loadProject" class="link">Import route file</button></div>
     <input id="loadFile" type="file" accept=".json" hidden>
   </details>
 
-  <details id="keys"><summary>Map keys</summary>
-    <p class="hint">Google Photorealistic 3D Tiles need a Google Maps Platform key with the Map Tiles API enabled. Without one the planner uses Cesium ion terrain (if you give a token) or flat Esri imagery.</p>
-    <label>Google Maps API key <input id="keyGoogle" type="password" autocomplete="off"></label>
-    <label>Cesium ion token (optional) <input id="keyIon" type="password" autocomplete="off"></label>
+  <details class="card" id="keys">
+    <summary><b>⚙</b>Map keys</summary>
+    <p class="hint">Google Photorealistic 3D Tiles need a Google Maps Platform key with the Map Tiles API enabled. Without one the planner uses Cesium ion terrain (if you give a token) or flat Esri imagery. Keys stay in this browser.</p>
+    <label class="f"><span>Google Maps API key</span><input id="keyGoogle" type="password" autocomplete="off"></label>
+    <label class="f"><span>Cesium ion token (optional)</span><input id="keyIon" type="password" autocomplete="off"></label>
     <button id="saveKeys">Save &amp; reload</button>
   </details>
 </aside>
-<div id="cesium"></div>
+
+<main id="stage">
+  <div id="cesium"></div>
+  <div id="toolbar">
+    <button data-tool="select" class="on"><i>➤</i>Select</button>
+    <button data-tool="add"><i>＋</i>Add waypoint</button>
+    <button data-tool="move"><i>✥</i>Move selected</button>
+  </div>
+  <div id="status"></div>
+</main>
 <script type="module" src="src/app.js"></script>
 </body>
 </html>

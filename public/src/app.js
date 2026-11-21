@@ -1,6 +1,6 @@
 import { newProject, normalizeProject } from './project.js';
 import { api } from './api.js';
-import { buildShapeWaypoints, SHAPE_TYPES } from './shapes.js';
+import { buildShapeWaypoints, SHAPE_TYPES, GENERATORS, fitToBox } from './shapes.js';
 import { bearingDeg } from './geo.js';
 import { sampleRoute, evaluateRoute } from './route.js';
 import { buildKml, buildCues } from './kml.js';
@@ -19,6 +19,8 @@ let viewer;
 let routeDS;
 let previewDS;
 let mapMode = 'flat';
+let mapNote = '';
+let mapWarn = false;
 let checkTimer;
 let checkRun = 0;
 
@@ -95,7 +97,7 @@ async function openRoute(id) {
   project = normalizeProject(r.project);
   localStorage.setItem(PRJ_KEY, JSON.stringify(project));
   selected = -1;
-  $('revSelect').hidden = $('revRestore').hidden = true;
+  $('revRow').hidden = $('revSelect').hidden = $('revRestore').hidden = true;
   fillRouteSelect();
   setSync('· saved');
   commit();
@@ -113,7 +115,7 @@ async function initRemote() {
   try {
     await refreshRoutes();
   } catch {
-    $('routes').querySelector('summary').textContent = 'Routes (server unavailable — saving to this browser only)';
+    setSync('· server unavailable, saving to this browser only', true);
     return;
   }
   remote.on = true;
@@ -193,7 +195,9 @@ async function initViewer() {
     ion: 'Cesium World Terrain (bare earth only — trees and buildings are not checked)',
     flat: 'Flat Esri imagery — no terrain. Add a Google key under "Map keys" for real clearance checks.',
   }[mapMode];
-  say(label, mapMode === 'flat');
+  mapNote = label;
+  mapWarn = mapMode === 'flat';
+  say(mapNote, mapWarn);
 }
 
 function flyTo(p) {
@@ -334,7 +338,16 @@ function draw(checkResult) {
 function setTool(t) {
   tool = t;
   document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t));
-  if (t !== 'select') say(`Click the map to place: ${t}.`);
+  const hints = {
+    home: 'Click the map to set the takeoff point.',
+    camera: 'Click the map where the camera will stand.',
+    center: 'Click the map where the shape should hang.',
+    add: 'Click the map to add a waypoint.',
+    move: 'Select a waypoint, then click the map to move it.',
+  };
+  if (hints[t]) say(hints[t]);
+  else if (mapNote) say(mapNote, mapWarn);
+  else say('');
   if (viewer) viewer.canvas.style.cursor = t === 'select' ? '' : 'crosshair';
 }
 
@@ -365,6 +378,7 @@ function renderList() {
     row.onclick = () => select(i);
     list.appendChild(row);
   });
+  $('wpCount').textContent = project.waypoints.length ? `· ${project.waypoints.length} waypoints` : '';
   const w = project.waypoints[selected];
   $('wpEdit').hidden = !w;
   if (w) {
@@ -402,10 +416,64 @@ function syncInputs() {
   $('shFaceCam').checked = project.shape.faceCamera;
   $('projName').value = project.name;
   if (document.activeElement !== $('homeMsl')) $('homeMsl').value = project.home?.msl ?? '';
+  for (const id of ['shType', 'shColorMode']) markMirror(id);
+  renderSite();
+}
+
+function renderSite() {
+  const fmt = (p) => (p ? `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}` : 'not set');
+  for (const [text, row, p] of [
+    ['siteHome', 'rowHome', project.home],
+    ['siteCamera', 'rowCamera', project.camera],
+    ['siteCenter', 'rowCenter', project.shapeCenter],
+  ]) {
+    $(text).textContent = fmt(p);
+    $(row).classList.toggle('set', !!p);
+  }
+}
+
+/** Swap a <select> for a row of buttons; the select stays as the source of truth. */
+function mirrorSelect(id, className, label) {
+  const sel = $(id);
+  sel.hidden = true;
+  const box = document.createElement('div');
+  box.className = className;
+  for (const o of sel.options) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.v = o.value;
+    b.innerHTML = label(o);
+    b.onclick = () => {
+      sel.value = o.value;
+      sel.oninput();
+      markMirror(id);
+    };
+    box.appendChild(b);
+  }
+  sel.after(box);
+}
+
+function markMirror(id) {
+  const box = $(id).nextElementSibling;
+  if (!box) return;
+  for (const b of box.children) b.classList.toggle('on', b.dataset.v === $(id).value);
+}
+
+/** Small line drawing of a shape, from the same generator that builds the route. */
+function thumb(type) {
+  const f = fitToBox(GENERATORS[type]().pts, 22, 18, 8);
+  const step = Math.max(1, Math.floor(f.length / 90));
+  const d = f
+    .filter((_, i) => i % step === 0 || i === f.length - 1)
+    .map(([u, v, w], i) => `${i ? 'L' : 'M'}${(16 + u + w * 0.5).toFixed(1)} ${(13 - v - w * 0.5).toFixed(1)}`)
+    .join('');
+  return `<svg viewBox="0 0 32 26"><path d="${d}"/></svg>`;
 }
 
 function bindUi() {
   $('shType').innerHTML = SHAPE_TYPES.map((t) => `<option>${t}</option>`).join('');
+  mirrorSelect('shType', 'shapes', (o) => `${thumb(o.value)}${o.value}`);
+  mirrorSelect('shColorMode', 'seg', (o) => o.textContent);
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
   for (const [id, [k, cast]] of Object.entries(shapeFields)) {
     $(id).oninput = () => {
@@ -521,7 +589,7 @@ function bindUi() {
     $('revSelect').innerHTML = revs.length
       ? revs.map((r) => `<option value="${r.id}">${new Date(r.created_at).toLocaleString()} · ${r.waypoints} wp</option>`).join('')
       : '<option value="">No earlier versions yet</option>';
-    $('revSelect').hidden = $('revRestore').hidden = false;
+    $('revRow').hidden = $('revSelect').hidden = $('revRestore').hidden = false;
   };
   $('revRestore').onclick = async () => {
     const rev = $('revSelect').value;
