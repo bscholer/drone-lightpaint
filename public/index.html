@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Drone light-paint route planner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.130/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.130/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+<link href="style.css" rel="stylesheet">
+</head>
+<body>
+<aside id="panel">
+  <h1>Light-paint planner</h1>
+  <div id="status"></div>
+  <div class="row"><input id="goto" type="text" placeholder="Go to: place name or lat, lon" style="flex:1"><button id="gotoBtn">Go</button></div>
+
+  <details open id="routes"><summary>Routes <span id="syncState" class="hint"></span></summary>
+    <select id="routeSelect"></select>
+    <div class="row">
+      <button id="routeNew">New</button><button id="routeDup">Duplicate</button><button id="routeDel">Delete</button>
+    </div>
+    <div class="row">
+      <button id="histBtn">History…</button>
+      <select id="revSelect" hidden style="flex:1"></select><button id="revRestore" hidden>Restore</button>
+    </div>
+  </details>
+
+  <details open><summary>1 · Reference points</summary>
+    <p class="hint">Click a tool, then click the map. Home is the takeoff point; altitudes are measured from it.</p>
+    <div class="row tools">
+      <button data-tool="select" class="on">Select</button>
+      <button data-tool="home">Home</button>
+      <button data-tool="camera">Camera</button>
+      <button data-tool="center">Shape centre</button>
+      <button data-tool="add">Add waypoint</button>
+      <button data-tool="move">Move selected</button>
+    </div>
+    <label>Takeoff elevation MSL (m) <input id="homeMsl" type="number" step="0.1"></label>
+  </details>
+
+  <details open><summary>2 · Shape</summary>
+    <label>Shape <select id="shType"></select></label>
+    <div class="grid">
+      <label>Width m <input id="shWidth" type="number" min="1"></label>
+      <label>Height m <input id="shHeight" type="number" min="1"></label>
+      <label>Depth m <input id="shDepth" type="number" min="0"> </label>
+      <label>Waypoints <input id="shSamples" type="number" min="2" max="150"></label>
+      <label>Centre alt m <input id="shAlt" type="number"></label>
+      <label>Facing ° <input id="shFacing" type="number" step="1"></label>
+    </div>
+    <label class="check"><input id="shFaceCam" type="checkbox"> Face the camera marker</label>
+    <label>Colours <select id="shColorMode"><option value="rainbow">Rainbow</option><option value="gradient">Gradient</option><option value="solid">Solid</option></select></label>
+    <div class="row"><input id="shColor" type="color"><input id="shColor2" type="color"></div>
+    <div class="row">
+      <button id="applyShape" class="primary">Replace route</button>
+      <button id="appendShape">Append</button>
+    </div>
+    <p class="hint">Dashed preview shows the shape before you commit. Depth only affects the helix.</p>
+  </details>
+
+  <details open><summary>3 · Route</summary>
+    <div id="wpEdit" hidden>
+      <b id="wpTitle"></b>
+      <div class="grid">
+        <label>Alt m <input id="wpAlt" type="number" step="0.5"></label>
+        <label>Colour <input id="wpColor" type="color"></label>
+      </div>
+      <label class="check"><input id="wpSync" type="checkbox"> Photo / sync blink here</label>
+      <div class="row"><button id="wpDelete">Delete</button><button id="wpInsert">Insert after</button></div>
+    </div>
+    <div id="wpList"></div>
+    <button id="clearRoute">Clear route</button>
+  </details>
+
+  <details open><summary>4 · Checks</summary>
+    <div class="grid">
+      <label>Min clearance m <input id="stClear" type="number"></label>
+      <label>Max height m <input id="stAgl" type="number"></label>
+      <label>Max range m <input id="stRange" type="number"></label>
+      <label>Speed m/s <input id="stSpeed" type="number" step="0.5"></label>
+      <label>Hold per photo s <input id="stHold" type="number" step="0.5"></label>
+    </div>
+    <div id="checks"></div>
+  </details>
+
+  <details open><summary>5 · Export</summary>
+    <label>Name <input id="projName" type="text"></label>
+    <label>KML altitude
+      <select id="stAltMode">
+        <option value="ellipsoid">Ellipsoid height (WGS84)</option>
+        <option value="relativeToGround">Above takeoff (relativeToGround)</option>
+        <option value="absolute">MSL (absolute, needs takeoff elevation)</option>
+      </select>
+    </label>
+    <div class="row"><button id="exportKml" class="primary">Download KML</button><button id="exportCues">Cues JSON</button></div>
+    <div class="row"><button id="saveProject">Export file</button><button id="loadProject">Import file</button></div>
+    <input id="loadFile" type="file" accept=".json" hidden>
+  </details>
+
+  <details id="keys"><summary>Map keys</summary>
+    <p class="hint">Google Photorealistic 3D Tiles need a Google Maps Platform key with the Map Tiles API enabled. Without one the planner uses Cesium ion terrain (if you give a token) or flat Esri imagery.</p>
+    <label>Google Maps API key <input id="keyGoogle" type="password" autocomplete="off"></label>
+    <label>Cesium ion token (optional) <input id="keyIon" type="password" autocomplete="off"></label>
+    <button id="saveKeys">Save &amp; reload</button>
+  </details>
+</aside>
+<div id="cesium"></div>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

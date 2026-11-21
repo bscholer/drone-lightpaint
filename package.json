@@ -1,0 +1,12 @@
+{
+  "name": "drone-lightpaint",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Route planner for drone light painting: designs 3D paths with per-waypoint colours and exports KML.",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/"
+  },
+  "engines": { "node": ">=24" }
+}
